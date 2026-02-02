@@ -7,6 +7,7 @@ import MapViewDirections from 'react-native-maps-directions';
 import * as Location from 'expo-location'; 
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // <--- 1. IMPORT STORAGE
 
 import DriverModal from '../components/DriverModal'; 
 import RideOptions from '../components/RideOptions'; 
@@ -21,19 +22,19 @@ export default function Home() {
   const [myLocation, setMyLocation] = useState({ latitude: 28.6139, longitude: 77.2090 });
   const [region, setRegion] = useState({ latitude: 28.6139, longitude: 77.2090, latitudeDelta: 0.05, longitudeDelta: 0.05 });
   const [destination, setDestination] = useState<{latitude: number, longitude: number} | null>(null);
+  
+  // 2. NEW STATE: Capture the name of the place
+  const [destinationName, setDestinationName] = useState(""); 
+
   const [rideDetails, setRideDetails] = useState<any>(null);
   const [rideStatus, setRideStatus] = useState<'idle' | 'searching' | 'booked' | 'arrived' | 'completed'>('idle'); 
   const [assignedDriver, setAssignedDriver] = useState<any>(null);
   const [driverLocation, setDriverLocation] = useState<any>(null);
 
-  // --- GET LOCATION ---
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission denied', 'Allow location access to use this app.');
-        return;
-      }
+      if (status !== 'granted') return;
       let location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
       setMyLocation({ latitude, longitude });
@@ -41,7 +42,6 @@ export default function Home() {
     })();
   }, []);
 
-  // --- DRIVER LOGIC ---
   useEffect(() => {
     let interval: any;
     if (rideStatus === 'booked' && driverLocation && myLocation) {
@@ -75,19 +75,49 @@ export default function Home() {
     }, 3000); 
   };
 
+  // --- 3. SAVE RIDE FUNCTION ---
+  const saveRideToHistory = async () => {
+    try {
+      const newRide = {
+        id: Date.now().toString(),
+        place: destinationName || "Unknown Location",
+        date: new Date().toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        price: '₹450',
+        status: 'Completed'
+      };
+
+      // Get existing rides
+      const existingRides = await AsyncStorage.getItem('rideHistory');
+      const history = existingRides ? JSON.parse(existingRides) : [];
+      
+      // Add new ride to top
+      const updatedHistory = [newRide, ...history];
+      
+      // Save back
+      await AsyncStorage.setItem('rideHistory', JSON.stringify(updatedHistory));
+      console.log("Ride Saved!", newRide);
+    } catch (error) {
+      console.error("Failed to save ride", error);
+    }
+  };
+
   const cancelRide = () => {
+    // 4. IF COMPLETED, SAVE BEFORE RESETTING
+    if (rideStatus === 'completed') {
+      saveRideToHistory();
+    }
+
     setRideStatus('idle');
     setAssignedDriver(null);
     setDestination(null);
     setRideDetails(null);
     setDriverLocation(null);
+    setDestinationName("");
   };
 
-  // --- SHORTCUT FUNCTION ---
-  const handleShortcut = (lat: number, lng: number) => {
+  const handleShortcut = (lat: number, lng: number, name: string) => {
     setDestination({ latitude: lat, longitude: lng });
-    
-    // Animate map to fit both locations
+    setDestinationName(name); // Set shortcut name
     setTimeout(() => {
       mapRef.current?.fitToCoordinates([myLocation, { latitude: lat, longitude: lng }], {
         edgePadding: { top: 100, right: 50, bottom: 350, left: 50 },
@@ -98,7 +128,6 @@ export default function Home() {
 
   return (
     <View style={styles.container}>
-      
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -107,19 +136,12 @@ export default function Home() {
         showsUserLocation={true} 
         onRegionChangeComplete={(r) => setRegion(r)}
       >
-        {destination && (
-          <Marker coordinate={destination} title="Drop Location" pinColor="blue" />
-        )}
-
+        {destination && <Marker coordinate={destination} title="Drop Location" pinColor="blue" />}
         {rideStatus === 'booked' && driverLocation && (
           <Marker coordinate={driverLocation} title="Your Driver">
-            <Image 
-              source={{ uri: 'https://cdn-icons-png.flaticon.com/512/75/75780.png' }} 
-              style={{ width: 40, height: 40, resizeMode: 'contain' }} 
-            />
+            <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/75/75780.png' }} style={{ width: 40, height: 40, resizeMode: 'contain' }} />
           </Marker>
         )}
-
         {destination && (
           <MapViewDirections
             origin={myLocation} 
@@ -130,21 +152,15 @@ export default function Home() {
             mode="DRIVING"
             onReady={(result) => {
               setRideDetails(result);
-              mapRef.current?.fitToCoordinates(result.coordinates, {
-                edgePadding: { top: 100, right: 50, bottom: 350, left: 50 },
-                animated: true,
-              });
+              mapRef.current?.fitToCoordinates(result.coordinates, { edgePadding: { top: 100, right: 50, bottom: 350, left: 50 }, animated: true });
             }}
             onError={(errorMessage) => console.error(errorMessage)}
           />
         )}
       </MapView>
 
-      {/* --- HEADER SECTION --- */}
       {rideStatus === 'idle' && (
         <SafeAreaView style={styles.headerContainer}>
-          
-          {/* ROW 1: MENU + SEARCH */}
           <View style={styles.topRow}>
             <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
               <Ionicons name="menu" size={28} color="black" />
@@ -158,50 +174,35 @@ export default function Home() {
                   fetchDetails={true}
                   query={{ key: GOOGLE_API_KEY, language: 'en' }}
                   onPress={(data, details = null) => {
+                      // 5. CAPTURE NAME FROM SEARCH
+                      setDestinationName(data.description); 
                       if (details?.geometry?.location) {
                           const { lat, lng } = details.geometry.location;
                           setDestination({ latitude: lat, longitude: lng });
                       }
                   }}
-                  styles={{
-                      container: { flex: 0 },
-                      textInput: { fontSize: 18, backgroundColor: '#f0f0f0', borderRadius: 10, height: 50 },
-                  }}
+                  styles={{ container: { flex: 0 }, textInput: { fontSize: 18, backgroundColor: '#f0f0f0', borderRadius: 10, height: 50 } }}
                 />
             </View>
           </View>
 
-          {/* ROW 2: SAVED PLACES SHORTCUTS */}
           <View style={styles.shortcutContainer}>
-            
-            {/* HOME SHORTCUT */}
-            <TouchableOpacity 
-              style={styles.shortcutBtn}
-              onPress={() => handleShortcut(28.6139, 77.2090)} // Connaught Place
-            >
+            <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.6139, 77.2090, "Home")}>
               <View style={[styles.iconCircle, { backgroundColor: '#2196F3' }]}>
                 <Ionicons name="home" size={18} color="white" />
               </View>
               <Text style={styles.shortcutText}>Home</Text>
             </TouchableOpacity>
-
-            {/* WORK SHORTCUT */}
-            <TouchableOpacity 
-              style={styles.shortcutBtn}
-              onPress={() => handleShortcut(28.4595, 77.0266)} // Gurugram
-            >
+            <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.4595, 77.0266, "Work")}>
               <View style={[styles.iconCircle, { backgroundColor: '#FF9800' }]}>
                 <Ionicons name="briefcase" size={18} color="white" />
               </View>
               <Text style={styles.shortcutText}>Work</Text>
             </TouchableOpacity>
-
           </View>
-
         </SafeAreaView>
       )}
 
-      {/* BOTTOM SHEET */}
       <View style={styles.bottomSheet}>
         {rideStatus === 'searching' && (
           <View style={styles.loadingContainer}>
@@ -213,11 +214,7 @@ export default function Home() {
           <DriverModal driver={assignedDriver} onCancel={cancelRide} />
         )}
         {rideStatus === 'idle' && rideDetails && (
-          <RideOptions 
-            distance={rideDetails.distance}
-            travelTime={rideDetails.duration}
-            onBook={bookRide} 
-          />
+          <RideOptions distance={rideDetails.distance} travelTime={rideDetails.duration} onBook={bookRide} />
         )}
         {rideStatus === 'completed' && (
           <BillModal price={450} onClose={cancelRide} />
@@ -230,84 +227,14 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   map: { width: '100%', height: '100%' },
-  
-  // Header Container Layout
-  headerContainer: {
-    position: 'absolute',
-    top: 10,
-    width: '100%',
-    zIndex: 1,
-    paddingHorizontal: 15,
-  },
-  
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    width: '100%',
-  },
-
-  menuButton: {
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 10,
-    marginTop: 5, 
-    marginRight: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-    height: 50, 
-    width: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inputWrapper: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-
-  // Shortcut Styles
-  shortcutContainer: {
-    flexDirection: 'row',
-    marginTop: 15,
-    paddingLeft: 60, // Align with search bar
-  },
-  shortcutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    marginRight: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  iconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  shortcutText: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    color: '#333',
-  },
-
+  headerContainer: { position: 'absolute', top: 10, width: '100%', zIndex: 1, paddingHorizontal: 15 },
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
+  menuButton: { backgroundColor: 'white', padding: 10, borderRadius: 10, marginTop: 5, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5, height: 50, width: 50, alignItems: 'center', justifyContent: 'center' },
+  inputWrapper: { flex: 1, backgroundColor: 'white', borderRadius: 10, padding: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 },
+  shortcutContainer: { flexDirection: 'row', marginTop: 15, paddingLeft: 60 },
+  shortcutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
+  iconCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  shortcutText: { fontWeight: 'bold', fontSize: 14, color: '#333' },
   bottomSheet: { position: 'absolute', bottom: 0, width: '100%', zIndex: 3 },
   loadingContainer: { padding: 30, backgroundColor: 'white', alignItems: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 5, elevation: 10 },
   loadingText: { marginTop: 10, fontWeight: 'bold', fontSize: 16 }
