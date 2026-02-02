@@ -7,13 +7,17 @@ import MapViewDirections from 'react-native-maps-directions';
 import * as Location from 'expo-location'; 
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // <--- 1. IMPORT STORAGE
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
 import DriverModal from '../components/DriverModal'; 
 import RideOptions from '../components/RideOptions'; 
 import BillModal from '../components/BillModal';
 
 const GOOGLE_API_KEY = "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"; 
+
+// --- ICON URLS ---
+const CAR_ICON = 'https://cdn-icons-png.flaticon.com/512/75/75780.png';
+const BIKE_ICON = 'https://cdn-icons-png.flaticon.com/512/171/171254.png';
 
 export default function Home() {
   const mapRef = useRef<MapView>(null);
@@ -23,13 +27,14 @@ export default function Home() {
   const [region, setRegion] = useState({ latitude: 28.6139, longitude: 77.2090, latitudeDelta: 0.05, longitudeDelta: 0.05 });
   const [destination, setDestination] = useState<{latitude: number, longitude: number} | null>(null);
   
-  // 2. NEW STATE: Capture the name of the place
   const [destinationName, setDestinationName] = useState(""); 
-
   const [rideDetails, setRideDetails] = useState<any>(null);
   const [rideStatus, setRideStatus] = useState<'idle' | 'searching' | 'booked' | 'arrived' | 'completed'>('idle'); 
   const [assignedDriver, setAssignedDriver] = useState<any>(null);
   const [driverLocation, setDriverLocation] = useState<any>(null);
+
+  // 1. NEW STATE: Holds the current icon (Car or Bike)
+  const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
 
   useEffect(() => {
     (async () => {
@@ -68,6 +73,14 @@ export default function Home() {
 
   const bookRide = (vehicle: any) => {
     setRideStatus('searching');
+    
+    // 2. CHECK VEHICLE TYPE
+    if (vehicle.title.includes('Moto')) {
+      setVehicleIcon(BIKE_ICON); // Set Bike Icon
+    } else {
+      setVehicleIcon(CAR_ICON);  // Set Car Icon
+    }
+
     setTimeout(() => {
       setRideStatus('booked');
       setAssignedDriver({ name: "Ramesh Kumar", carModel: vehicle.title, plate: "WB 02 AK 4921" });
@@ -75,7 +88,6 @@ export default function Home() {
     }, 3000); 
   };
 
-  // --- 3. SAVE RIDE FUNCTION ---
   const saveRideToHistory = async () => {
     try {
       const newRide = {
@@ -85,28 +97,19 @@ export default function Home() {
         price: '₹450',
         status: 'Completed'
       };
-
-      // Get existing rides
       const existingRides = await AsyncStorage.getItem('rideHistory');
       const history = existingRides ? JSON.parse(existingRides) : [];
-      
-      // Add new ride to top
       const updatedHistory = [newRide, ...history];
-      
-      // Save back
       await AsyncStorage.setItem('rideHistory', JSON.stringify(updatedHistory));
-      console.log("Ride Saved!", newRide);
     } catch (error) {
       console.error("Failed to save ride", error);
     }
   };
 
   const cancelRide = () => {
-    // 4. IF COMPLETED, SAVE BEFORE RESETTING
     if (rideStatus === 'completed') {
       saveRideToHistory();
     }
-
     setRideStatus('idle');
     setAssignedDriver(null);
     setDestination(null);
@@ -117,7 +120,7 @@ export default function Home() {
 
   const handleShortcut = (lat: number, lng: number, name: string) => {
     setDestination({ latitude: lat, longitude: lng });
-    setDestinationName(name); // Set shortcut name
+    setDestinationName(name); 
     setTimeout(() => {
       mapRef.current?.fitToCoordinates([myLocation, { latitude: lat, longitude: lng }], {
         edgePadding: { top: 100, right: 50, bottom: 350, left: 50 },
@@ -137,11 +140,17 @@ export default function Home() {
         onRegionChangeComplete={(r) => setRegion(r)}
       >
         {destination && <Marker coordinate={destination} title="Drop Location" pinColor="blue" />}
+        
+        {/* 3. DYNAMIC MARKER ICON */}
         {rideStatus === 'booked' && driverLocation && (
           <Marker coordinate={driverLocation} title="Your Driver">
-            <Image source={{ uri: 'https://cdn-icons-png.flaticon.com/512/75/75780.png' }} style={{ width: 40, height: 40, resizeMode: 'contain' }} />
+            <Image 
+              source={{ uri: vehicleIcon }} // Use the dynamic state variable
+              style={{ width: 40, height: 40, resizeMode: 'contain' }} 
+            />
           </Marker>
         )}
+
         {destination && (
           <MapViewDirections
             origin={myLocation} 
@@ -174,7 +183,6 @@ export default function Home() {
                   fetchDetails={true}
                   query={{ key: GOOGLE_API_KEY, language: 'en' }}
                   onPress={(data, details = null) => {
-                      // 5. CAPTURE NAME FROM SEARCH
                       setDestinationName(data.description); 
                       if (details?.geometry?.location) {
                           const { lat, lng } = details.geometry.location;

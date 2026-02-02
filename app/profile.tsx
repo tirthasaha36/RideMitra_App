@@ -1,31 +1,25 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router'; // Import useFocusEffect
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Import Storage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
   const router = useRouter();
   const [rides, setRides] = useState<any[]>([]);
 
-  // --- LOAD RIDES EVERY TIME SCREEN IS FOCUSED ---
   useFocusEffect(
     useCallback(() => {
       const loadHistory = async () => {
         try {
           const storedRides = await AsyncStorage.getItem('rideHistory');
-          if (storedRides) {
-            setRides(JSON.parse(storedRides));
-          }
-        } catch (e) {
-          console.error("Failed to load history");
-        }
+          if (storedRides) setRides(JSON.parse(storedRides));
+        } catch (e) { console.error("Failed to load history"); }
       };
       loadHistory();
     }, [])
   );
 
-  // Function to Clear History (Optional feature)
   const clearHistory = async () => {
     await AsyncStorage.removeItem('rideHistory');
     setRides([]);
@@ -46,10 +40,7 @@ export default function Profile() {
         
         {/* USER CARD */}
         <View style={styles.userCard}>
-          <Image 
-            source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} 
-            style={styles.avatar}
-          />
+          <Image source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }} style={styles.avatar} />
           <View>
             <Text style={styles.userName}>Tirtha Jyoti</Text>
             <Text style={styles.userPhone}>+91 98765 43210</Text>
@@ -60,12 +51,19 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* MENU OPTIONS */}
+        {/* MENU OPTIONS (Updated) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
-          <MenuOption icon="card-outline" title="Payment Methods" />
-          <MenuOption icon="location-outline" title="Saved Places" />
-          <MenuOption icon="settings-outline" title="Settings" />
+          
+          {/* LINK TO WALLET */}
+          <MenuOption 
+            icon="wallet-outline" 
+            title="Wallet & Payment" 
+            onPress={() => router.push('/wallet')} 
+          />
+          
+          <MenuOption icon="location-outline" title="Saved Places" onPress={() => {}} />
+          <MenuOption icon="settings-outline" title="Settings" onPress={() => {}} />
         </View>
 
         {/* RIDE HISTORY */}
@@ -93,20 +91,14 @@ export default function Profile() {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.ridePrice}>{ride.price}</Text>
-                  <Text style={[styles.rideStatus, { color: 'green' }]}>
-                    {ride.status}
-                  </Text>
+                  <Text style={[styles.rideStatus, { color: 'green' }]}>Completed</Text>
                 </View>
               </View>
             ))
           )}
         </View>
 
-        {/* LOGOUT */}
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={() => router.replace('/login')}
-        >
+        <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/login')}>
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -115,9 +107,10 @@ export default function Profile() {
   );
 }
 
-function MenuOption({ icon, title }: { icon: any, title: string }) {
+// Updated MenuOption to accept onPress
+function MenuOption({ icon, title, onPress }: { icon: any, title: string, onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.menuRow}>
+    <TouchableOpacity style={styles.menuRow} onPress={onPress}>
       <View style={styles.menuIconBox}>
         <Ionicons name={icon} size={22} color="black" />
       </View>
