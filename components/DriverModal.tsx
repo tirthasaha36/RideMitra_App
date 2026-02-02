@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons'; // Better icons
 
 // 1. Define what a "Driver" looks like
 interface Driver {
@@ -16,6 +17,22 @@ interface DriverModalProps {
 
 export default function DriverModal({ driver, onCancel }: DriverModalProps) {
   if (!driver) return null;
+
+  // --- FUNCTION TO OPEN DIALER ---
+  const handleCall = () => {
+    const phoneNumber = '+919876543210'; // Dummy Driver Number
+    
+    // Attempt to open the dialer
+    Linking.canOpenURL(`tel:${phoneNumber}`)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert("Error", "Phone calls are not supported on this simulator/device");
+        } else {
+          return Linking.openURL(`tel:${phoneNumber}`);
+        }
+      })
+      .catch((err) => console.error('An error occurred', err));
+  };
 
   return (
     <View style={styles.container}>
@@ -37,9 +54,9 @@ export default function DriverModal({ driver, onCancel }: DriverModalProps) {
           <Text style={styles.rating}>⭐ 4.8 (1,204 rides)</Text>
         </View>
         
-        {/* Call Button */}
-        <TouchableOpacity style={styles.callButton}>
-          <Text style={styles.callIcon}>📞</Text>
+        {/* Call Button (UPDATED) */}
+        <TouchableOpacity style={styles.callButton} onPress={handleCall}>
+          <Ionicons name="call" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
@@ -58,6 +75,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
     elevation: 10,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
@@ -71,8 +91,16 @@ const styles = StyleSheet.create({
   car: { color: 'gray', marginTop: 2 },
   rating: { fontSize: 12, color: 'gray', marginTop: 4 },
   
-  callButton: { backgroundColor: '#f0f0f0', padding: 10, borderRadius: 25 },
-  callIcon: { fontSize: 20 },
+  // Updated Call Button Style
+  callButton: { 
+    backgroundColor: '#2ecc71', // Green color
+    width: 50,
+    height: 50,
+    borderRadius: 25, 
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5
+  },
 
   cancelBtn: { backgroundColor: '#ffebee', padding: 15, borderRadius: 10, alignItems: 'center' },
   cancelText: { color: '#d32f2f', fontWeight: 'bold', fontSize: 16 },
