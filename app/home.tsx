@@ -26,15 +26,16 @@ export default function Home() {
   const [myLocation, setMyLocation] = useState({ latitude: 28.6139, longitude: 77.2090 });
   const [region, setRegion] = useState({ latitude: 28.6139, longitude: 77.2090, latitudeDelta: 0.05, longitudeDelta: 0.05 });
   const [destination, setDestination] = useState<{latitude: number, longitude: number} | null>(null);
-  
   const [destinationName, setDestinationName] = useState(""); 
+  
   const [rideDetails, setRideDetails] = useState<any>(null);
   const [rideStatus, setRideStatus] = useState<'idle' | 'searching' | 'booked' | 'arrived' | 'completed'>('idle'); 
   const [assignedDriver, setAssignedDriver] = useState<any>(null);
   const [driverLocation, setDriverLocation] = useState<any>(null);
-
-  // 1. NEW STATE: Holds the current icon (Car or Bike)
   const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
+
+  // 1. NEW STATE: Store the calculated trip cost
+  const [tripCost, setTripCost] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -71,15 +72,32 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [rideStatus, myLocation, driverLocation]);
 
+  // --- UPDATED BOOKING LOGIC ---
   const bookRide = (vehicle: any) => {
     setRideStatus('searching');
     
-    // 2. CHECK VEHICLE TYPE
+    // Check Vehicle Type for Icon
     if (vehicle.title.includes('Moto')) {
-      setVehicleIcon(BIKE_ICON); // Set Bike Icon
+      setVehicleIcon(BIKE_ICON);
     } else {
-      setVehicleIcon(CAR_ICON);  // Set Car Icon
+      setVehicleIcon(CAR_ICON);
     }
+
+    // 2. CALCULATE REAL PRICE
+    const distanceKm = rideDetails?.distance || 0;
+    let basePrice = 50;
+    let ratePerKm = 12; // Default Car Rate
+
+    if (vehicle.title.includes('Moto')) {
+      basePrice = 20;
+      ratePerKm = 8; // Cheaper for Bike
+    } else if (vehicle.title.includes('Premier')) {
+      basePrice = 80;
+      ratePerKm = 18; // Expensive for Premium
+    }
+
+    const finalPrice = Math.round(basePrice + (distanceKm * ratePerKm));
+    setTripCost(finalPrice); // Save to state
 
     setTimeout(() => {
       setRideStatus('booked');
@@ -94,7 +112,9 @@ export default function Home() {
         id: Date.now().toString(),
         place: destinationName || "Unknown Location",
         date: new Date().toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        price: '₹450',
+        
+        // 3. USE REAL PRICE IN HISTORY
+        price: `₹${tripCost}`,
         status: 'Completed'
       };
       const existingRides = await AsyncStorage.getItem('rideHistory');
@@ -116,6 +136,7 @@ export default function Home() {
     setRideDetails(null);
     setDriverLocation(null);
     setDestinationName("");
+    setTripCost(0); // Reset cost
   };
 
   const handleShortcut = (lat: number, lng: number, name: string) => {
@@ -141,11 +162,10 @@ export default function Home() {
       >
         {destination && <Marker coordinate={destination} title="Drop Location" pinColor="blue" />}
         
-        {/* 3. DYNAMIC MARKER ICON */}
         {rideStatus === 'booked' && driverLocation && (
           <Marker coordinate={driverLocation} title="Your Driver">
             <Image 
-              source={{ uri: vehicleIcon }} // Use the dynamic state variable
+              source={{ uri: vehicleIcon }} 
               style={{ width: 40, height: 40, resizeMode: 'contain' }} 
             />
           </Marker>
@@ -224,8 +244,10 @@ export default function Home() {
         {rideStatus === 'idle' && rideDetails && (
           <RideOptions distance={rideDetails.distance} travelTime={rideDetails.duration} onBook={bookRide} />
         )}
+        
+        {/* 4. PASS REAL CALCULATED PRICE TO BILL */}
         {rideStatus === 'completed' && (
-          <BillModal price={450} onClose={cancelRide} />
+          <BillModal price={tripCost} onClose={cancelRide} />
         )}
       </View>
     </View>
