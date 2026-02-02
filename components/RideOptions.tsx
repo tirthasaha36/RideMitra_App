@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image } from 'react-native';
 
-// 1. Define what a "Vehicle" looks like
+// 1. Define what a Vehicle looks like
 interface Vehicle {
   id: string;
   title: string;
@@ -9,10 +9,11 @@ interface Vehicle {
   image: string;
 }
 
-// 2. Define what props this component accepts
+// 2. Define the props this component expects
 interface RideOptionsProps {
   distance: number;
   travelTime: number;
+  onBook: (vehicle: Vehicle) => void;
 }
 
 const vehicles: Vehicle[] = [
@@ -23,8 +24,8 @@ const vehicles: Vehicle[] = [
 
 const SURGE_CHARGE_RATE = 12;
 
-export default function RideOptions({ distance, travelTime }: RideOptionsProps) {
-  // 3. FIX: Tell State it can hold a 'Vehicle' OR 'null'
+export default function RideOptions({ distance, travelTime, onBook }: RideOptionsProps) {
+  // 3. Allow state to be either a Vehicle OR null
   const [selected, setSelected] = useState<Vehicle | null>(null);
 
   return (
@@ -70,6 +71,7 @@ export default function RideOptions({ distance, travelTime }: RideOptionsProps) 
 
       <TouchableOpacity 
         disabled={!selected} 
+        onPress={() => selected && onBook(selected)}
         style={[styles.button, { backgroundColor: selected ? 'black' : 'gray' }]}
       >
         <Text style={styles.buttonText}>Choose {selected?.title}</Text>

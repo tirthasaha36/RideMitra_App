@@ -1,7 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 
-export default function DriverModal({ driver, onCancel }) {
+// 1. Define what a "Driver" looks like
+interface Driver {
+  name: string;
+  carModel: string;
+  plate: string;
+}
+
+// 2. Define the props this component expects
+interface DriverModalProps {
+  driver: Driver;
+  onCancel: () => void;
+}
+
+export default function DriverModal({ driver, onCancel }: DriverModalProps) {
   if (!driver) return null;
 
   return (
