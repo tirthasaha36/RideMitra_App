@@ -1,42 +1,34 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Alert } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Better icons
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // Import Router
 
-// 1. Define what a "Driver" looks like
 interface Driver {
   name: string;
   carModel: string;
   plate: string;
 }
 
-// 2. Define the props this component expects
 interface DriverModalProps {
   driver: Driver;
   onCancel: () => void;
 }
 
 export default function DriverModal({ driver, onCancel }: DriverModalProps) {
+  const router = useRouter(); // Initialize Router
+
   if (!driver) return null;
 
-  // --- FUNCTION TO OPEN DIALER ---
   const handleCall = () => {
-    const phoneNumber = '+919876543210'; // Dummy Driver Number
-    
-    // Attempt to open the dialer
-    Linking.canOpenURL(`tel:${phoneNumber}`)
-      .then((supported) => {
-        if (!supported) {
-          Alert.alert("Error", "Phone calls are not supported on this simulator/device");
-        } else {
-          return Linking.openURL(`tel:${phoneNumber}`);
-        }
-      })
-      .catch((err) => console.error('An error occurred', err));
+    const phoneNumber = '+919876543210'; 
+    Linking.openURL(`tel:${phoneNumber}`).catch(() => 
+      Alert.alert("Error", "Unable to open dialer")
+    );
   };
 
   return (
     <View style={styles.container}>
-      {/* Header: Meet at... */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.timeText}>Arriving in 4 mins</Text>
         <Text style={styles.otpText}>OTP: 4921</Text>
@@ -54,13 +46,28 @@ export default function DriverModal({ driver, onCancel }: DriverModalProps) {
           <Text style={styles.rating}>⭐ 4.8 (1,204 rides)</Text>
         </View>
         
-        {/* Call Button (UPDATED) */}
-        <TouchableOpacity style={styles.callButton} onPress={handleCall}>
-          <Ionicons name="call" size={24} color="white" />
-        </TouchableOpacity>
+        {/* ACTION BUTTONS */}
+        <View style={styles.actionButtons}>
+          
+          {/* 1. MESSAGE BUTTON */}
+          <TouchableOpacity 
+            style={[styles.iconBtn, { backgroundColor: '#E3F2FD', marginRight: 10 }]}
+            onPress={() => router.push({ pathname: '/chat', params: { name: driver.name } })}
+          >
+            <Ionicons name="chatbubble" size={22} color="#2196F3" />
+          </TouchableOpacity>
+
+          {/* 2. CALL BUTTON */}
+          <TouchableOpacity 
+            style={[styles.iconBtn, { backgroundColor: '#E8F5E9' }]} 
+            onPress={handleCall}
+          >
+            <Ionicons name="call" size={22} color="#2ecc71" />
+          </TouchableOpacity>
+
+        </View>
       </View>
 
-      {/* Cancel Button */}
       <TouchableOpacity onPress={onCancel} style={styles.cancelBtn}>
         <Text style={styles.cancelText}>Cancel Ride</Text>
       </TouchableOpacity>
@@ -91,15 +98,11 @@ const styles = StyleSheet.create({
   car: { color: 'gray', marginTop: 2 },
   rating: { fontSize: 12, color: 'gray', marginTop: 4 },
   
-  // Updated Call Button Style
-  callButton: { 
-    backgroundColor: '#2ecc71', // Green color
-    width: 50,
-    height: 50,
-    borderRadius: 25, 
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 5
+  actionButtons: { flexDirection: 'row' },
+  
+  iconBtn: { 
+    width: 45, height: 45, borderRadius: 25, 
+    alignItems: 'center', justifyContent: 'center' 
   },
 
   cancelBtn: { backgroundColor: '#ffebee', padding: 15, borderRadius: 10, alignItems: 'center' },
