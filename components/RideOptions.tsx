@@ -1,81 +1,127 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Image, Dimensions } from 'react-native';
 
-// 1. Define what a Vehicle looks like
-interface Vehicle {
-  id: string;
-  title: string;
-  multiplier: number;
-  image: string;
-}
-
-// 2. Define the props this component expects
 interface RideOptionsProps {
   distance: number;
   travelTime: number;
-  onBook: (vehicle: Vehicle) => void;
+  onBook: (vehicle: any) => void;
 }
 
-const vehicles: Vehicle[] = [
-  { id: '1', title: 'Uber Go', multiplier: 1, image: 'https://links.papareact.com/3pn' }, 
-  { id: '2', title: 'Uber Moto', multiplier: 0.5, image: 'https://links.papareact.com/5w8' },
-  { id: '3', title: 'Uber Premier', multiplier: 1.5, image: 'https://links.papareact.com/7pf' },
+const rides = [
+  {
+    id: 'Moto-123',
+    title: 'MotoGo',
+    multiplier: 0.5,
+    image: 'https://cdn-icons-png.flaticon.com/512/171/171254.png', 
+    desc: 'Zip through traffic',
+    isPromo: false
+  },
+  {
+    id: 'Auto-456',
+    title: 'TukTuk',
+    multiplier: 0.7,
+    image: 'https://cdn-icons-png.flaticon.com/512/2312/2312953.png', 
+    desc: 'Open air breeze',
+    isPromo: true
+  },
+  {
+    id: 'Lite-789',
+    title: 'GoLite',
+    multiplier: 1,
+    image: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', 
+    desc: 'Pocket friendly AC ride',
+    isPromo: false
+  },
+  {
+    id: 'Plus-101',
+    title: 'Ride+',
+    multiplier: 1.2,
+    image: 'https://cdn-icons-png.flaticon.com/512/75/75780.png', 
+    desc: 'Comfy sedan for you',
+    isPromo: false
+  },
+  {
+    id: 'Smooth-112',
+    title: 'SmoothGo',
+    multiplier: 1.5,
+    image: 'https://cdn-icons-png.flaticon.com/512/55/55283.png', 
+    desc: 'Premium experience',
+    isPromo: false
+  },
+  {
+    id: 'Max-131',
+    title: 'MaxCab',
+    multiplier: 1.8,
+    image: 'https://cdn-icons-png.flaticon.com/512/846/846296.png', 
+    desc: 'For the whole gang',
+    isPromo: false
+  },
 ];
 
-const SURGE_CHARGE_RATE = 12;
-
 export default function RideOptions({ distance, travelTime, onBook }: RideOptionsProps) {
-  // 3. Allow state to be either a Vehicle OR null
-  const [selected, setSelected] = useState<Vehicle | null>(null);
+  const [selected, setSelected] = useState<any>(null); 
+
+  const getPrice = (multiplier: number) => {
+    const baseRate = 50;
+    const ratePerKm = 12;
+    const price = (baseRate + (distance * ratePerKm)) * multiplier;
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price);
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Select a Ride - {distance} km</Text>
+      
+      {/* Header Info */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Select a Ride</Text>
+        <Text style={styles.distance}>{distance.toFixed(1)} km • {Math.round(travelTime)} min</Text>
+      </View>
 
       <FlatList
-        data={vehicles}
+        data={rides}
         keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => setSelected(item)}
+          <TouchableOpacity 
             style={[
-              styles.row,
-              { backgroundColor: item.id === selected?.id ? '#E0E0E0' : 'white' }
+              styles.rideCard, 
+              selected?.id === item.id && styles.selectedCard 
             ]}
+            onPress={() => setSelected(item)}
           >
-            {/* Image */}
             <Image
-              style={{ width: 80, height: 80, resizeMode: 'contain' }}
+              style={styles.image}
               source={{ uri: item.image }}
+              resizeMode="contain"
             />
-
-            {/* Title & Time */}
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.time}>{Math.round(travelTime)} min travel time</Text>
-            </View>
-
-            {/* Price Calculation */}
-            <Text style={styles.price}>
-              {new Intl.NumberFormat('en-IN', {
-                style: 'currency',
-                currency: 'INR'
-              }).format(
-                (travelTime * SURGE_CHARGE_RATE * item.multiplier) / 10
-                 + (distance * SURGE_CHARGE_RATE)
+            <View style={styles.details}>
+              <Text style={styles.rideTitle}>{item.title}</Text>
+              <Text style={styles.rideDesc}>{item.desc}</Text>
+              {item.isPromo && (
+                <View style={styles.promoBadge}>
+                  <Text style={styles.promoText}>Best Value</Text>
+                </View>
               )}
+            </View>
+            <Text style={styles.price}>
+              {getPrice(item.multiplier)}
             </Text>
           </TouchableOpacity>
         )}
+        style={styles.list}
       />
 
+      {/* Book Button */}
       <TouchableOpacity 
         disabled={!selected} 
-        onPress={() => selected && onBook(selected)}
-        style={[styles.button, { backgroundColor: selected ? 'black' : 'gray' }]}
+        style={[styles.bookButton, !selected && { backgroundColor: '#e0e0e0', opacity: 0.5 }]}
+        onPress={() => onBook(selected)}
       >
-        <Text style={styles.buttonText}>Choose {selected?.title}</Text>
+        <Text style={[styles.bookText, !selected && { color: '#999' }]}>
+          {selected ? `Book ${selected.title}` : 'Select a Ride'}
+        </Text>
       </TouchableOpacity>
+      
     </View>
   );
 }
@@ -83,32 +129,105 @@ export default function RideOptions({ distance, travelTime, onBook }: RideOption
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     padding: 20,
-    height: 350,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
+    shadowOffset: { width: 0, height: -5 },
     shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 10,
+    shadowRadius: 10,
+    elevation: 20,
+    
+    // IMPORTANT FIX: Strict height limit
+    height: 400, // Fixed height in pixels (safe for most screens)
+    // Or you can use maxHeight: '40%' if you prefer percentage
+    width: '100%',
   },
-  header: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
-  row: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 10
+  },
+  title: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  distance: { fontSize: 14, color: 'gray', fontWeight: '600' },
+
+  list: {
+    flex: 1, // Ensures list takes remaining space inside the fixed height
+  },
+
+  // CARD STYLES
+  rideCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    marginBottom: 5,
-    borderRadius: 10,
+    justifyContent: 'space-between',
+    padding: 12, 
+    borderRadius: 12,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#f0f0f0' 
   },
-  title: { fontSize: 18, fontWeight: 'bold' },
-  time: { color: 'gray' },
-  price: { fontSize: 18, fontWeight: 'bold', color: '#2ecc71' },
-  button: {
+  selectedCard: {
+    borderColor: '#FFC107', 
+    backgroundColor: '#FFF8E1', 
+  },
+  image: {
+    width: 50, 
+    height: 50,
+    marginRight: 10
+  },
+  details: {
+    flex: 1,
+  },
+  rideTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'black',
+  },
+  rideDesc: {
+    fontSize: 12,
+    color: 'gray',
+    marginTop: 2,
+  },
+  price: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'black',
+  },
+  
+  promoBadge: {
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 4
+  },
+  promoText: {
+    color: '#2e7d32',
+    fontSize: 10,
+    fontWeight: 'bold'
+  },
+
+  bookButton: {
+    backgroundColor: '#FFC107', 
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 10, 
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
-  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  bookText: {
+    color: 'black', 
+    fontSize: 18,
+    fontWeight: 'bold',
+  }
 });
