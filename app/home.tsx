@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Image, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Image, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -16,7 +16,6 @@ import Radar from '../components/Radar';
 
 const GOOGLE_API_KEY = "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"; 
 
-// --- ICON URLS ---
 const CAR_ICON = 'https://cdn-icons-png.flaticon.com/512/75/75780.png';
 const BIKE_ICON = 'https://cdn-icons-png.flaticon.com/512/171/171254.png';
 
@@ -24,10 +23,19 @@ export default function Home() {
   const mapRef = useRef<MapView>(null);
   const router = useRouter(); 
 
+  // --- ANIMATION VALUES ---
+  const fadeAnim = useRef(new Animated.Value(1)).current; // Opacity
+  const scaleAnim = useRef(new Animated.Value(1)).current; // Scale (Zoom effect)
+  const slideAnim = useRef(new Animated.Value(0)).current; // Slide Y
+
   const [myLocation, setMyLocation] = useState({ latitude: 28.6139, longitude: 77.2090 });
-  const [region, setRegion] = useState({ latitude: 28.6139, longitude: 77.2090, latitudeDelta: 0.05, longitudeDelta: 0.05 });
+  const [pickupLocation, setPickupLocation] = useState<any>(null);
+  const [pickupName, setPickupName] = useState("Locating...");
+
   const [destination, setDestination] = useState<{latitude: number, longitude: number} | null>(null);
   const [destinationName, setDestinationName] = useState(""); 
+  
+  const [region, setRegion] = useState({ latitude: 28.6139, longitude: 77.2090, latitudeDelta: 0.05, longitudeDelta: 0.05 });
   
   const [rideDetails, setRideDetails] = useState<any>(null);
   const [rideStatus, setRideStatus] = useState<'idle' | 'searching' | 'booked' | 'arrived' | 'completed'>('idle'); 
@@ -35,7 +43,36 @@ export default function Home() {
   const [driverLocation, setDriverLocation] = useState<any>(null);
   const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
   const [tripCost, setTripCost] = useState(0);
-  const [currentAddress, setCurrentAddress] = useState("Locating...");
+  const [riderIdentity, setRiderIdentity] = useState('Myself'); 
+
+  // --- TRIGGER "MORPH" ANIMATION ---
+  useEffect(() => {
+    // 1. Reset values (Start slightly smaller, transparent, and lower)
+    fadeAnim.setValue(0);
+    scaleAnim.setValue(0.95);
+    slideAnim.setValue(10);
+
+    // 2. Animate to Normal (1.0)
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.back(1.5)), // Small "bounce" effect
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      })
+    ]).start();
+
+  }, [destination]); // Runs every time destination changes (Single <-> Double)
 
   useEffect(() => {
     (async () => {
@@ -44,8 +81,11 @@ export default function Home() {
 
       let location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
-      setMyLocation({ latitude, longitude });
+      const initialPos = { latitude, longitude };
       
+      setMyLocation(initialPos);
+      setPickupLocation(initialPos); 
+
       mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
 
       try {
@@ -53,59 +93,52 @@ export default function Home() {
         if (addressResponse.length > 0) {
           const item = addressResponse[0];
           const address = `${item.name || item.street}, ${item.city || item.region}`;
-          setCurrentAddress(address);
+          setPickupName(address);
         }
       } catch (e) {
-        setCurrentAddress("Unknown Location");
+        setPickupName("Current Location");
       }
     })();
   }, []);
 
   useEffect(() => {
     let interval: any;
-    if (rideStatus === 'booked' && driverLocation && myLocation) {
+    if (rideStatus === 'booked' && driverLocation && pickupLocation) {
       interval = setInterval(() => {
         setDriverLocation((prev: any) => {
           if (!prev) return prev;
-          const latDiff = Math.abs(myLocation.latitude - prev.latitude);
-          const lngDiff = Math.abs(myLocation.longitude - prev.longitude);
+          const latDiff = Math.abs(pickupLocation.latitude - prev.latitude);
+          const lngDiff = Math.abs(pickupLocation.longitude - prev.longitude);
           if (latDiff < 0.0005 && lngDiff < 0.0005) {
             clearInterval(interval);
             setRideStatus('arrived');
-            Alert.alert("Driver Arrived!", "Hop in, your ride is starting.");
+            Alert.alert("Driver Arrived!", `Picking up ${riderIdentity === 'Myself' ? 'you' : 'your friend'}.`);
             setTimeout(() => { setRideStatus('completed'); }, 5000); 
             return prev;
           }
-          const newLat = prev.latitude + (myLocation.latitude - prev.latitude) * 0.1;
-          const newLng = prev.longitude + (myLocation.longitude - prev.longitude) * 0.1;
+          const newLat = prev.latitude + (pickupLocation.latitude - prev.latitude) * 0.1;
+          const newLng = prev.longitude + (pickupLocation.longitude - prev.longitude) * 0.1;
           return { latitude: newLat, longitude: newLng };
         });
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [rideStatus, myLocation, driverLocation]);
+  }, [rideStatus, pickupLocation, driverLocation]);
 
-  const bookRide = (vehicle: any) => {
+  const bookRide = (vehicle: any, bookingFor: string) => {
     setDriverLocation(null); 
     setRideStatus('searching');
+    setRiderIdentity(bookingFor); 
     
-    if (vehicle.title.includes('Moto')) {
-      setVehicleIcon(BIKE_ICON);
-    } else {
-      setVehicleIcon(CAR_ICON);
-    }
+    if (vehicle.title.includes('Moto')) setVehicleIcon(BIKE_ICON);
+    else setVehicleIcon(CAR_ICON);
 
     const distanceKm = rideDetails?.distance || 0;
     let basePrice = 50;
     let ratePerKm = 12; 
 
-    if (vehicle.title.includes('Moto')) {
-      basePrice = 20;
-      ratePerKm = 8; 
-    } else if (vehicle.title.includes('Max')) {
-      basePrice = 80;
-      ratePerKm = 18; 
-    }
+    if (vehicle.title.includes('Moto')) { basePrice = 20; ratePerKm = 8; } 
+    else if (vehicle.title.includes('Max')) { basePrice = 80; ratePerKm = 18; }
 
     const finalPrice = Math.round(basePrice + (distanceKm * ratePerKm) * vehicle.multiplier);
     setTripCost(finalPrice); 
@@ -113,7 +146,7 @@ export default function Home() {
     setTimeout(() => {
       setRideStatus('booked');
       setAssignedDriver({ name: "Ramesh Kumar", carModel: vehicle.title, plate: "WB 02 AK 4921" });
-      setDriverLocation({ latitude: myLocation.latitude - 0.005, longitude: myLocation.longitude - 0.005 });
+      setDriverLocation({ latitude: pickupLocation.latitude - 0.005, longitude: pickupLocation.longitude - 0.005 });
     }, 4000); 
   };
 
@@ -146,14 +179,19 @@ export default function Home() {
     setDriverLocation(null);
     setDestinationName("");
     setTripCost(0); 
+    setPickupLocation(myLocation); 
   };
 
   const handleShortcut = (lat: number, lng: number, name: string) => {
     setDestination({ latitude: lat, longitude: lng });
     setDestinationName(name); 
+    fitMap(pickupLocation, { latitude: lat, longitude: lng });
+  };
+
+  const fitMap = (origin: any, dest: any) => {
     setTimeout(() => {
-      mapRef.current?.fitToCoordinates([myLocation, { latitude: lat, longitude: lng }], {
-        edgePadding: { top: 100, right: 50, bottom: 350, left: 50 },
+      mapRef.current?.fitToCoordinates([origin, dest], {
+        edgePadding: { top: 180, right: 50, bottom: 350, left: 50 },
         animated: true,
       });
     }, 500);
@@ -169,26 +207,24 @@ export default function Home() {
         showsUserLocation={rideStatus !== 'searching'} 
         onRegionChangeComplete={(r) => setRegion(r)}
       >
-        {destination && <Marker coordinate={destination} title="Drop Location" pinColor="blue" />}
+        {pickupLocation && <Marker coordinate={pickupLocation} title="Pickup" pinColor="green" />}
+        {destination && <Marker coordinate={destination} title="Drop" pinColor="red" />}
         
         {rideStatus === 'booked' && driverLocation && (
           <Marker coordinate={driverLocation} title="Your Driver">
-            <Image 
-              source={{ uri: vehicleIcon }} 
-              style={{ width: 40, height: 40, resizeMode: 'contain' }} 
-            />
+            <Image source={{ uri: vehicleIcon }} style={{ width: 40, height: 40, resizeMode: 'contain' }} />
           </Marker>
         )}
 
         {rideStatus === 'searching' && (
-          <Marker coordinate={myLocation} anchor={{ x: 0.5, y: 0.5 }}>
+          <Marker coordinate={pickupLocation} anchor={{ x: 0.5, y: 0.5 }}>
             <Radar />
           </Marker>
         )}
 
-        {destination && (
+        {pickupLocation && destination && (
           <MapViewDirections
-            origin={myLocation} 
+            origin={pickupLocation} 
             destination={destination}
             apikey={GOOGLE_API_KEY}
             strokeWidth={4}
@@ -196,80 +232,140 @@ export default function Home() {
             mode="DRIVING"
             onReady={(result) => {
               setRideDetails(result);
-              mapRef.current?.fitToCoordinates(result.coordinates, { edgePadding: { top: 100, right: 50, bottom: 350, left: 50 }, animated: true });
+              fitMap(pickupLocation, destination);
             }}
             onError={(errorMessage) => console.error(errorMessage)}
           />
         )}
       </MapView>
 
+      {/* --- HEADER LOGIC --- */}
       {rideStatus === 'idle' && (
         <SafeAreaView style={styles.headerContainer} pointerEvents="box-none">
           
-          {/* UPDATED: Address Badge with Soft Shadows */}
-          <View style={styles.locationBadge}>
-            <View style={styles.greenDot} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {currentAddress}
-            </Text>
-          </View>
-
-          <View style={styles.topRow}>
-            {/* UPDATED: Circular Menu Button */}
-            <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
-              <Ionicons name="menu" size={26} color="black" />
-            </TouchableOpacity>
-
-            {/* UPDATED: Floating Pill Search Bar */}
-            <View style={styles.inputWrapper}>
-                <View style={styles.searchIcon}>
-                  <Ionicons name="search" size={20} color="black" />
+          {/* WRAPPER FOR ANIMATION */}
+          <Animated.View style={{ 
+            opacity: fadeAnim, 
+            transform: [
+              { scale: scaleAnim }, 
+              { translateY: slideAnim }
+            ] 
+          }}>
+            {!destination ? (
+              /* --- SINGLE SEARCH BAR --- */
+              <View> 
+                <View style={styles.locationBadge}>
+                  <View style={styles.greenDot} />
+                  <Text style={styles.locationText} numberOfLines={1}>{pickupName}</Text>
                 </View>
-                <GooglePlacesAutocomplete
-                  placeholder="Where to?"
-                  nearbyPlacesAPI="GooglePlacesSearch"
-                  debounce={400}
-                  fetchDetails={true}
-                  query={{ key: GOOGLE_API_KEY, language: 'en' }}
-                  onPress={(data, details = null) => {
-                      setDestinationName(data.description); 
-                      if (details?.geometry?.location) {
-                          const { lat, lng } = details.geometry.location;
-                          setDestination({ latitude: lat, longitude: lng });
-                      }
-                  }}
-                  styles={{ 
-                    container: { flex: 1 }, 
-                    textInput: { 
-                      fontSize: 18, 
-                      backgroundColor: 'transparent', // Transparent to blend with Pill
-                      height: 50, 
-                      marginTop: 0,
-                      color: 'black'
-                    },
-                    textInputContainer: {
-                      alignItems: 'center'
-                    }
-                  }}
-                />
-            </View>
-          </View>
 
-          {/* UPDATED: Soft Shortcut Buttons */}
-          <View style={styles.shortcutContainer}>
-            <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.6139, 77.2090, "Home")}>
-              <View style={[styles.iconCircle, { backgroundColor: '#2196F3' }]}>
-                <Ionicons name="home" size={18} color="white" />
+                <View style={styles.topRow}>
+                  <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
+                    <Ionicons name="menu" size={26} color="black" />
+                  </TouchableOpacity>
+
+                  <View style={styles.inputWrapper}>
+                      <View style={styles.searchIcon}><Ionicons name="search" size={20} color="black" /></View>
+                      <GooglePlacesAutocomplete
+                        placeholder="Where to?"
+                        nearbyPlacesAPI="GooglePlacesSearch"
+                        debounce={400}
+                        fetchDetails={true}
+                        query={{ key: GOOGLE_API_KEY, language: 'en' }}
+                        onPress={(data, details = null) => {
+                            setDestinationName(data.description); 
+                            if (details?.geometry?.location) {
+                                const { lat, lng } = details.geometry.location;
+                                setDestination({ latitude: lat, longitude: lng });
+                            }
+                        }}
+                        styles={autoCompleteStyles}
+                      />
+                  </View>
+                </View>
+
+                <View style={styles.shortcutContainer}>
+                  <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.6139, 77.2090, "Home")}>
+                    <View style={[styles.iconCircle, { backgroundColor: '#2196F3' }]}>
+                      <Ionicons name="home" size={18} color="white" />
+                    </View>
+                    <Text style={styles.shortcutText}>Home</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.4595, 77.0266, "Work")}>
+                    <View style={[styles.iconCircle, { backgroundColor: '#FF9800' }]}>
+                      <Ionicons name="briefcase" size={18} color="white" />
+                    </View>
+                    <Text style={styles.shortcutText}>Work</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-              <Text style={styles.shortcutText}>Home</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.4595, 77.0266, "Work")}>
-              <View style={[styles.iconCircle, { backgroundColor: '#FF9800' }]}>
-                <Ionicons name="briefcase" size={18} color="white" />
+            ) : (
+              /* --- MODERN ROUNDED DOUBLE INPUT --- */
+              <View style={styles.modernInputContainer}>
+                <TouchableOpacity onPress={() => setDestination(null)} style={styles.backBtnAbsolute}>
+                  <View style={styles.backBtnCircle}>
+                    <Ionicons name="arrow-back" size={22} color="black" />
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.inputsColumn}>
+                  
+                  {/* FROM INPUT */}
+                  <View style={styles.inputRow}>
+                    <View style={styles.greenDot} />
+                    <GooglePlacesAutocomplete
+                        placeholder={pickupName}
+                        nearbyPlacesAPI="GooglePlacesSearch"
+                        debounce={400}
+                        fetchDetails={true}
+                        query={{ key: GOOGLE_API_KEY, language: 'en' }}
+                        onPress={(data, details = null) => {
+                            setPickupName(data.description);
+                            if (details?.geometry?.location) {
+                                const { lat, lng } = details.geometry.location;
+                                setPickupLocation({ latitude: lat, longitude: lng });
+                            }
+                        }}
+                        styles={{
+                          container: { flex: 1 },
+                          textInput: { height: 45, color: 'black', fontSize: 16, backgroundColor: '#F3F4F6', borderRadius: 25, paddingLeft: 15 },
+                          listView: { zIndex: 9999 } 
+                        }}
+                      />
+                  </View>
+
+                  {/* CONNECTOR LINE */}
+                  <View style={styles.connectorContainer}>
+                     <View style={styles.connectorLine} />
+                  </View>
+
+                  {/* TO INPUT */}
+                  <View style={styles.inputRow}>
+                    <View style={styles.redSquare} />
+                    <GooglePlacesAutocomplete
+                        placeholder={destinationName}
+                        nearbyPlacesAPI="GooglePlacesSearch"
+                        debounce={400}
+                        fetchDetails={true}
+                        query={{ key: GOOGLE_API_KEY, language: 'en' }}
+                        onPress={(data, details = null) => {
+                            setDestinationName(data.description);
+                            if (details?.geometry?.location) {
+                                const { lat, lng } = details.geometry.location;
+                                setDestination({ latitude: lat, longitude: lng });
+                            }
+                        }}
+                        styles={{
+                          container: { flex: 1 },
+                          textInput: { height: 45, color: 'black', fontSize: 16, backgroundColor: '#F3F4F6', borderRadius: 25, paddingLeft: 15 }
+                        }}
+                      />
+                  </View>
+                </View>
               </View>
-              <Text style={styles.shortcutText}>Work</Text>
-            </TouchableOpacity>
-          </View>
+            )}
+          </Animated.View>
+
         </SafeAreaView>
       )}
 
@@ -277,7 +373,9 @@ export default function Home() {
         {rideStatus === 'searching' && (
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingTitle}>Connecting nearby drivers...</Text>
-            <Text style={styles.loadingSubtitle}>Please wait while we find your ride</Text>
+            <Text style={styles.loadingSubtitle}>
+              {riderIdentity === 'Myself' ? "Finding a ride for you" : "Finding a ride for your friend"}
+            </Text>
           </View>
         )}
         
@@ -296,125 +394,57 @@ export default function Home() {
   );
 }
 
+const autoCompleteStyles = { 
+  container: { flex: 1 }, 
+  textInput: { fontSize: 18, backgroundColor: 'transparent', height: 50, marginTop: 0, color: 'black' },
+  textInputContainer: { alignItems: 'center' }
+};
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   map: { width: '100%', height: '100%' },
   
-  // HEADER SECTION
-  headerContainer: { 
-    position: 'absolute', 
-    top: 10, 
-    width: '100%', 
-    zIndex: 1, 
-    paddingHorizontal: 15,
+  headerContainer: { position: 'absolute', top: 10, width: '100%', zIndex: 1, paddingHorizontal: 15 },
+  
+  // --- MODERN INPUT STYLES ---
+  modernInputContainer: {
+    backgroundColor: 'white', 
+    borderRadius: 25, 
+    paddingVertical: 20, 
+    paddingHorizontal: 15, 
+    marginHorizontal: 5, 
+    marginTop: 10,
+    
+    // Deep Soft Shadow
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10, 
+    flexDirection: 'row', alignItems: 'center'
   },
   
-  // PILL BADGE
-  locationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 25, // Pill Shape
-    alignSelf: 'center',
-    marginBottom: 12,
-    // Soft Shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    maxWidth: '85%',
-  },
-  greenDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#2ecc71', marginRight: 8
-  },
-  locationText: {
-    fontWeight: '600',
-    fontSize: 14,
-    color: '#333',
-  },
+  backBtnAbsolute: { marginRight: 10 },
+  backBtnCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  inputsColumn: { flex: 1 },
+  
+  inputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  connectorContainer: { paddingLeft: 11, height: 15, justifyContent: 'center' },
+  connectorLine: { width: 2, height: '100%', backgroundColor: '#E5E7EB', marginBottom: 5 },
+  
+  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2ecc71', marginRight: 12 },
+  redSquare: { width: 8, height: 8, backgroundColor: '#e74c3c', marginRight: 12 },
 
-  topRow: { 
-    flexDirection: 'row', 
-    alignItems: 'flex-start', 
-    width: '100%' 
-  },
-
-  // CIRCLE MENU BUTTON
-  menuButton: { 
-    backgroundColor: 'white', 
-    width: 50,
-    height: 50,
-    borderRadius: 25, // Perfect Circle
-    alignItems: 'center', 
-    justifyContent: 'center',
-    marginRight: 12,
-    // Soft Shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-
-  // PILL SEARCH BAR
-  inputWrapper: { 
-    flex: 1, 
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white', 
-    borderRadius: 30, // Large Radius for Pill
-    paddingHorizontal: 10,
-    // Soft Shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6, 
-    height: 50,
-  },
-  searchIcon: {
-    marginLeft: 5,
-    marginRight: 5
-  },
-
-  // SHORTCUTS
-  shortcutContainer: { 
-    flexDirection: 'row', 
-    marginTop: 15, 
-    paddingLeft: 62 // Align with search text
-  },
-  shortcutBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'white', 
-    paddingVertical: 10, 
-    paddingHorizontal: 15, 
-    borderRadius: 25, // More rounded
-    marginRight: 10, 
-    // Subtle Shadow
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 2 }, 
-    shadowOpacity: 0.08, 
-    shadowRadius: 4, 
-    elevation: 3, 
-  },
+  // --- SINGLE SEARCH STYLES ---
+  locationBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 25, alignSelf: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, maxWidth: '85%' },
+  locationText: { fontWeight: '600', fontSize: 14, color: '#333' },
+  topRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
+  menuButton: { backgroundColor: 'white', width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginRight: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5 },
+  inputWrapper: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 30, paddingHorizontal: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 6, height: 50 },
+  searchIcon: { marginLeft: 5, marginRight: 5 },
+  shortcutContainer: { flexDirection: 'row', marginTop: 15, paddingLeft: 62 },
+  shortcutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 25, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3 },
   iconCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   shortcutText: { fontWeight: 'bold', fontSize: 14, color: '#333' },
   
   bottomSheet: { position: 'absolute', bottom: 0, width: '100%', zIndex: 3 },
-  
-  loadingContainer: { 
-    padding: 30, 
-    backgroundColor: 'white', 
-    alignItems: 'center', 
-    borderTopLeftRadius: 20, 
-    borderTopRightRadius: 20, 
-    shadowColor: "#000", 
-    elevation: 10 
-  },
+  loadingContainer: { padding: 30, backgroundColor: 'white', alignItems: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: "#000", elevation: 10 },
   loadingTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
   loadingSubtitle: { fontSize: 14, color: 'gray' },
 });
