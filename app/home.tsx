@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Image } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DriverModal from '../components/DriverModal'; 
 import RideOptions from '../components/RideOptions'; 
 import BillModal from '../components/BillModal';
-import Radar from '../components/Radar'; // <--- 1. NEW IMPORT
+import Radar from '../components/Radar'; 
 
 const GOOGLE_API_KEY = "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"; 
 
@@ -35,8 +35,6 @@ export default function Home() {
   const [driverLocation, setDriverLocation] = useState<any>(null);
   const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
   const [tripCost, setTripCost] = useState(0);
-
-  // Address Badge State
   const [currentAddress, setCurrentAddress] = useState("Locating...");
 
   useEffect(() => {
@@ -88,7 +86,6 @@ export default function Home() {
   }, [rideStatus, myLocation, driverLocation]);
 
   const bookRide = (vehicle: any) => {
-    // 2. Clear previous data and start searching
     setDriverLocation(null); 
     setRideStatus('searching');
     
@@ -117,7 +114,7 @@ export default function Home() {
       setRideStatus('booked');
       setAssignedDriver({ name: "Ramesh Kumar", carModel: vehicle.title, plate: "WB 02 AK 4921" });
       setDriverLocation({ latitude: myLocation.latitude - 0.005, longitude: myLocation.longitude - 0.005 });
-    }, 4000); // Increased wait time to enjoy the Radar animation
+    }, 4000); 
   };
 
   const saveRideToHistory = async () => {
@@ -169,7 +166,7 @@ export default function Home() {
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={region} 
-        showsUserLocation={rideStatus !== 'searching'} // Hide blue dot when Radar is active
+        showsUserLocation={rideStatus !== 'searching'} 
         onRegionChangeComplete={(r) => setRegion(r)}
       >
         {destination && <Marker coordinate={destination} title="Drop Location" pinColor="blue" />}
@@ -183,7 +180,6 @@ export default function Home() {
           </Marker>
         )}
 
-        {/* 3. SHOW RADAR ONLY WHEN SEARCHING */}
         {rideStatus === 'searching' && (
           <Marker coordinate={myLocation} anchor={{ x: 0.5, y: 0.5 }}>
             <Radar />
@@ -208,22 +204,27 @@ export default function Home() {
       </MapView>
 
       {rideStatus === 'idle' && (
-        <SafeAreaView style={styles.headerContainer}>
+        <SafeAreaView style={styles.headerContainer} pointerEvents="box-none">
           
-          {/* CURRENT ADDRESS BADGE */}
+          {/* UPDATED: Address Badge with Soft Shadows */}
           <View style={styles.locationBadge}>
-            <Ionicons name="location" size={16} color="#2196F3" />
+            <View style={styles.greenDot} />
             <Text style={styles.locationText} numberOfLines={1}>
               {currentAddress}
             </Text>
           </View>
 
           <View style={styles.topRow}>
+            {/* UPDATED: Circular Menu Button */}
             <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
-              <Ionicons name="menu" size={28} color="black" />
+              <Ionicons name="menu" size={26} color="black" />
             </TouchableOpacity>
 
+            {/* UPDATED: Floating Pill Search Bar */}
             <View style={styles.inputWrapper}>
+                <View style={styles.searchIcon}>
+                  <Ionicons name="search" size={20} color="black" />
+                </View>
                 <GooglePlacesAutocomplete
                   placeholder="Where to?"
                   nearbyPlacesAPI="GooglePlacesSearch"
@@ -237,11 +238,24 @@ export default function Home() {
                           setDestination({ latitude: lat, longitude: lng });
                       }
                   }}
-                  styles={{ container: { flex: 0 }, textInput: { fontSize: 18, backgroundColor: '#f0f0f0', borderRadius: 10, height: 50 } }}
+                  styles={{ 
+                    container: { flex: 1 }, 
+                    textInput: { 
+                      fontSize: 18, 
+                      backgroundColor: 'transparent', // Transparent to blend with Pill
+                      height: 50, 
+                      marginTop: 0,
+                      color: 'black'
+                    },
+                    textInputContainer: {
+                      alignItems: 'center'
+                    }
+                  }}
                 />
             </View>
           </View>
 
+          {/* UPDATED: Soft Shortcut Buttons */}
           <View style={styles.shortcutContainer}>
             <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.6139, 77.2090, "Home")}>
               <View style={[styles.iconCircle, { backgroundColor: '#2196F3' }]}>
@@ -260,7 +274,6 @@ export default function Home() {
       )}
 
       <View style={styles.bottomSheet}>
-        {/* 4. UPDATED SEARCHING UI (No Spinner, just text) */}
         {rideStatus === 'searching' && (
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingTitle}>Connecting nearby drivers...</Text>
@@ -286,41 +299,113 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   map: { width: '100%', height: '100%' },
-  headerContainer: { position: 'absolute', top: 10, width: '100%', zIndex: 1, paddingHorizontal: 15 },
   
+  // HEADER SECTION
+  headerContainer: { 
+    position: 'absolute', 
+    top: 10, 
+    width: '100%', 
+    zIndex: 1, 
+    paddingHorizontal: 15,
+  },
+  
+  // PILL BADGE
   locationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 25, // Pill Shape
     alignSelf: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    // Soft Shadow
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-    maxWidth: '90%',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    maxWidth: '85%',
+  },
+  greenDot: {
+    width: 8, height: 8, borderRadius: 4, backgroundColor: '#2ecc71', marginRight: 8
   },
   locationText: {
-    marginLeft: 6,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 14,
     color: '#333',
   },
 
-  topRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
-  menuButton: { backgroundColor: 'white', padding: 10, borderRadius: 10, marginTop: 5, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5, height: 50, width: 50, alignItems: 'center', justifyContent: 'center' },
-  inputWrapper: { flex: 1, backgroundColor: 'white', borderRadius: 10, padding: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 },
-  shortcutContainer: { flexDirection: 'row', marginTop: 15, paddingLeft: 60 },
-  shortcutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
+  topRow: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-start', 
+    width: '100%' 
+  },
+
+  // CIRCLE MENU BUTTON
+  menuButton: { 
+    backgroundColor: 'white', 
+    width: 50,
+    height: 50,
+    borderRadius: 25, // Perfect Circle
+    alignItems: 'center', 
+    justifyContent: 'center',
+    marginRight: 12,
+    // Soft Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  // PILL SEARCH BAR
+  inputWrapper: { 
+    flex: 1, 
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white', 
+    borderRadius: 30, // Large Radius for Pill
+    paddingHorizontal: 10,
+    // Soft Shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6, 
+    height: 50,
+  },
+  searchIcon: {
+    marginLeft: 5,
+    marginRight: 5
+  },
+
+  // SHORTCUTS
+  shortcutContainer: { 
+    flexDirection: 'row', 
+    marginTop: 15, 
+    paddingLeft: 62 // Align with search text
+  },
+  shortcutBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'white', 
+    paddingVertical: 10, 
+    paddingHorizontal: 15, 
+    borderRadius: 25, // More rounded
+    marginRight: 10, 
+    // Subtle Shadow
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.08, 
+    shadowRadius: 4, 
+    elevation: 3, 
+  },
   iconCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   shortcutText: { fontWeight: 'bold', fontSize: 14, color: '#333' },
+  
   bottomSheet: { position: 'absolute', bottom: 0, width: '100%', zIndex: 3 },
   
-  // NEW LOADING STYLES
   loadingContainer: { 
     padding: 30, 
     backgroundColor: 'white', 
