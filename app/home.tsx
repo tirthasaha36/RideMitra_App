@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { StyleSheet, View, ActivityIndicator, Text, TouchableOpacity, Alert, Image } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import DriverModal from '../components/DriverModal'; 
 import RideOptions from '../components/RideOptions'; 
 import BillModal from '../components/BillModal';
+import Radar from '../components/Radar'; // <--- 1. NEW IMPORT
 
 const GOOGLE_API_KEY = "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"; 
 
@@ -35,7 +36,7 @@ export default function Home() {
   const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
   const [tripCost, setTripCost] = useState(0);
 
-  // 1. NEW STATE: Current Address Text
+  // Address Badge State
   const [currentAddress, setCurrentAddress] = useState("Locating...");
 
   useEffect(() => {
@@ -49,18 +50,14 @@ export default function Home() {
       
       mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
 
-      // 2. REVERSE GEOCODING (Get Address from Lat/Lng)
       try {
         let addressResponse = await Location.reverseGeocodeAsync({ latitude, longitude });
-        
         if (addressResponse.length > 0) {
           const item = addressResponse[0];
-          // Construct a simple address string
           const address = `${item.name || item.street}, ${item.city || item.region}`;
           setCurrentAddress(address);
         }
       } catch (e) {
-        console.warn("Could not fetch address");
         setCurrentAddress("Unknown Location");
       }
     })();
@@ -91,7 +88,10 @@ export default function Home() {
   }, [rideStatus, myLocation, driverLocation]);
 
   const bookRide = (vehicle: any) => {
+    // 2. Clear previous data and start searching
+    setDriverLocation(null); 
     setRideStatus('searching');
+    
     if (vehicle.title.includes('Moto')) {
       setVehicleIcon(BIKE_ICON);
     } else {
@@ -105,19 +105,19 @@ export default function Home() {
     if (vehicle.title.includes('Moto')) {
       basePrice = 20;
       ratePerKm = 8; 
-    } else if (vehicle.title.includes('Premier')) {
+    } else if (vehicle.title.includes('Max')) {
       basePrice = 80;
       ratePerKm = 18; 
     }
 
-    const finalPrice = Math.round(basePrice + (distanceKm * ratePerKm));
+    const finalPrice = Math.round(basePrice + (distanceKm * ratePerKm) * vehicle.multiplier);
     setTripCost(finalPrice); 
 
     setTimeout(() => {
       setRideStatus('booked');
       setAssignedDriver({ name: "Ramesh Kumar", carModel: vehicle.title, plate: "WB 02 AK 4921" });
       setDriverLocation({ latitude: myLocation.latitude - 0.005, longitude: myLocation.longitude - 0.005 });
-    }, 3000); 
+    }, 4000); // Increased wait time to enjoy the Radar animation
   };
 
   const saveRideToHistory = async () => {
@@ -169,7 +169,7 @@ export default function Home() {
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={region} 
-        showsUserLocation={true} 
+        showsUserLocation={rideStatus !== 'searching'} // Hide blue dot when Radar is active
         onRegionChangeComplete={(r) => setRegion(r)}
       >
         {destination && <Marker coordinate={destination} title="Drop Location" pinColor="blue" />}
@@ -180,6 +180,13 @@ export default function Home() {
               source={{ uri: vehicleIcon }} 
               style={{ width: 40, height: 40, resizeMode: 'contain' }} 
             />
+          </Marker>
+        )}
+
+        {/* 3. SHOW RADAR ONLY WHEN SEARCHING */}
+        {rideStatus === 'searching' && (
+          <Marker coordinate={myLocation} anchor={{ x: 0.5, y: 0.5 }}>
+            <Radar />
           </Marker>
         )}
 
@@ -203,7 +210,7 @@ export default function Home() {
       {rideStatus === 'idle' && (
         <SafeAreaView style={styles.headerContainer}>
           
-          {/* 3. CURRENT ADDRESS BADGE */}
+          {/* CURRENT ADDRESS BADGE */}
           <View style={styles.locationBadge}>
             <Ionicons name="location" size={16} color="#2196F3" />
             <Text style={styles.locationText} numberOfLines={1}>
@@ -253,12 +260,14 @@ export default function Home() {
       )}
 
       <View style={styles.bottomSheet}>
+        {/* 4. UPDATED SEARCHING UI (No Spinner, just text) */}
         {rideStatus === 'searching' && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="black" />
-            <Text style={styles.loadingText}>Looking for nearby drivers...</Text>
+            <Text style={styles.loadingTitle}>Connecting nearby drivers...</Text>
+            <Text style={styles.loadingSubtitle}>Please wait while we find your ride</Text>
           </View>
         )}
+        
         {(rideStatus === 'booked' || rideStatus === 'arrived') && assignedDriver && (
           <DriverModal driver={assignedDriver} onCancel={cancelRide} />
         )}
@@ -279,7 +288,6 @@ const styles = StyleSheet.create({
   map: { width: '100%', height: '100%' },
   headerContainer: { position: 'absolute', top: 10, width: '100%', zIndex: 1, paddingHorizontal: 15 },
   
-  // NEW STYLES FOR ADDRESS BADGE
   locationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -311,6 +319,17 @@ const styles = StyleSheet.create({
   iconCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   shortcutText: { fontWeight: 'bold', fontSize: 14, color: '#333' },
   bottomSheet: { position: 'absolute', bottom: 0, width: '100%', zIndex: 3 },
-  loadingContainer: { padding: 30, backgroundColor: 'white', alignItems: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 5, elevation: 10 },
-  loadingText: { marginTop: 10, fontWeight: 'bold', fontSize: 16 }
+  
+  // NEW LOADING STYLES
+  loadingContainer: { 
+    padding: 30, 
+    backgroundColor: 'white', 
+    alignItems: 'center', 
+    borderTopLeftRadius: 20, 
+    borderTopRightRadius: 20, 
+    shadowColor: "#000", 
+    elevation: 10 
+  },
+  loadingTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
+  loadingSubtitle: { fontSize: 14, color: 'gray' },
 });
