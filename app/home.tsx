@@ -33,18 +33,36 @@ export default function Home() {
   const [assignedDriver, setAssignedDriver] = useState<any>(null);
   const [driverLocation, setDriverLocation] = useState<any>(null);
   const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
-
-  // 1. NEW STATE: Store the calculated trip cost
   const [tripCost, setTripCost] = useState(0);
+
+  // 1. NEW STATE: Current Address Text
+  const [currentAddress, setCurrentAddress] = useState("Locating...");
 
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
+
       let location = await Location.getCurrentPositionAsync({});
       const { latitude, longitude } = location.coords;
       setMyLocation({ latitude, longitude });
+      
       mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+
+      // 2. REVERSE GEOCODING (Get Address from Lat/Lng)
+      try {
+        let addressResponse = await Location.reverseGeocodeAsync({ latitude, longitude });
+        
+        if (addressResponse.length > 0) {
+          const item = addressResponse[0];
+          // Construct a simple address string
+          const address = `${item.name || item.street}, ${item.city || item.region}`;
+          setCurrentAddress(address);
+        }
+      } catch (e) {
+        console.warn("Could not fetch address");
+        setCurrentAddress("Unknown Location");
+      }
     })();
   }, []);
 
@@ -72,32 +90,28 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [rideStatus, myLocation, driverLocation]);
 
-  // --- UPDATED BOOKING LOGIC ---
   const bookRide = (vehicle: any) => {
     setRideStatus('searching');
-    
-    // Check Vehicle Type for Icon
     if (vehicle.title.includes('Moto')) {
       setVehicleIcon(BIKE_ICON);
     } else {
       setVehicleIcon(CAR_ICON);
     }
 
-    // 2. CALCULATE REAL PRICE
     const distanceKm = rideDetails?.distance || 0;
     let basePrice = 50;
-    let ratePerKm = 12; // Default Car Rate
+    let ratePerKm = 12; 
 
     if (vehicle.title.includes('Moto')) {
       basePrice = 20;
-      ratePerKm = 8; // Cheaper for Bike
+      ratePerKm = 8; 
     } else if (vehicle.title.includes('Premier')) {
       basePrice = 80;
-      ratePerKm = 18; // Expensive for Premium
+      ratePerKm = 18; 
     }
 
     const finalPrice = Math.round(basePrice + (distanceKm * ratePerKm));
-    setTripCost(finalPrice); // Save to state
+    setTripCost(finalPrice); 
 
     setTimeout(() => {
       setRideStatus('booked');
@@ -112,8 +126,6 @@ export default function Home() {
         id: Date.now().toString(),
         place: destinationName || "Unknown Location",
         date: new Date().toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        
-        // 3. USE REAL PRICE IN HISTORY
         price: `₹${tripCost}`,
         status: 'Completed'
       };
@@ -136,7 +148,7 @@ export default function Home() {
     setRideDetails(null);
     setDriverLocation(null);
     setDestinationName("");
-    setTripCost(0); // Reset cost
+    setTripCost(0); 
   };
 
   const handleShortcut = (lat: number, lng: number, name: string) => {
@@ -190,6 +202,15 @@ export default function Home() {
 
       {rideStatus === 'idle' && (
         <SafeAreaView style={styles.headerContainer}>
+          
+          {/* 3. CURRENT ADDRESS BADGE */}
+          <View style={styles.locationBadge}>
+            <Ionicons name="location" size={16} color="#2196F3" />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {currentAddress}
+            </Text>
+          </View>
+
           <View style={styles.topRow}>
             <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
               <Ionicons name="menu" size={28} color="black" />
@@ -245,7 +266,6 @@ export default function Home() {
           <RideOptions distance={rideDetails.distance} travelTime={rideDetails.duration} onBook={bookRide} />
         )}
         
-        {/* 4. PASS REAL CALCULATED PRICE TO BILL */}
         {rideStatus === 'completed' && (
           <BillModal price={tripCost} onClose={cancelRide} />
         )}
@@ -258,6 +278,31 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   map: { width: '100%', height: '100%' },
   headerContainer: { position: 'absolute', top: 10, width: '100%', zIndex: 1, paddingHorizontal: 15 },
+  
+  // NEW STYLES FOR ADDRESS BADGE
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    alignSelf: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+    maxWidth: '90%',
+  },
+  locationText: {
+    marginLeft: 6,
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#333',
+  },
+
   topRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
   menuButton: { backgroundColor: 'white', padding: 10, borderRadius: 10, marginTop: 5, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5, height: 50, width: 50, alignItems: 'center', justifyContent: 'center' },
   inputWrapper: { flex: 1, backgroundColor: 'white', borderRadius: 10, padding: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 },

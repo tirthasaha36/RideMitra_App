@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Linking, Alert, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // Import Router
+import { useRouter } from 'expo-router'; 
 
 interface Driver {
   name: string;
@@ -15,7 +15,7 @@ interface DriverModalProps {
 }
 
 export default function DriverModal({ driver, onCancel }: DriverModalProps) {
-  const router = useRouter(); // Initialize Router
+  const router = useRouter(); 
 
   if (!driver) return null;
 
@@ -24,6 +24,17 @@ export default function DriverModal({ driver, onCancel }: DriverModalProps) {
     Linking.openURL(`tel:${phoneNumber}`).catch(() => 
       Alert.alert("Error", "Unable to open dialer")
     );
+  };
+
+  // --- NEW: SHARE RIDE FUNCTION ---
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `I'm riding in a ${driver.carModel} (${driver.plate}) driven by ${driver.name}. Track my ride safely!`,
+      });
+    } catch (error) {
+      Alert.alert("Error", "Could not share ride details.");
+    }
   };
 
   return (
@@ -54,15 +65,23 @@ export default function DriverModal({ driver, onCancel }: DriverModalProps) {
             style={[styles.iconBtn, { backgroundColor: '#E3F2FD', marginRight: 10 }]}
             onPress={() => router.push({ pathname: '/chat', params: { name: driver.name } })}
           >
-            <Ionicons name="chatbubble" size={22} color="#2196F3" />
+            <Ionicons name="chatbubble" size={20} color="#2196F3" />
           </TouchableOpacity>
 
           {/* 2. CALL BUTTON */}
           <TouchableOpacity 
-            style={[styles.iconBtn, { backgroundColor: '#E8F5E9' }]} 
+            style={[styles.iconBtn, { backgroundColor: '#E8F5E9', marginRight: 10 }]} 
             onPress={handleCall}
           >
-            <Ionicons name="call" size={22} color="#2ecc71" />
+            <Ionicons name="call" size={20} color="#2ecc71" />
+          </TouchableOpacity>
+
+          {/* 3. SHARE BUTTON (NEW) */}
+          <TouchableOpacity 
+            style={[styles.iconBtn, { backgroundColor: '#FFF3E0' }]} 
+            onPress={handleShare}
+          >
+            <Ionicons name="share-social" size={20} color="#FF9800" />
           </TouchableOpacity>
 
         </View>
