@@ -13,6 +13,7 @@ import DriverModal from '../components/DriverModal';
 import RideOptions from '../components/RideOptions'; 
 import BillModal from '../components/BillModal';
 import Radar from '../components/Radar'; 
+import RatingModal from '../components/RatingModal'; // <--- 1. IMPORT RATING MODAL
 
 const GOOGLE_API_KEY = "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"; 
 
@@ -24,9 +25,9 @@ export default function Home() {
   const router = useRouter(); 
 
   // --- ANIMATION VALUES ---
-  const fadeAnim = useRef(new Animated.Value(1)).current; // Opacity
-  const scaleAnim = useRef(new Animated.Value(1)).current; // Scale (Zoom effect)
-  const slideAnim = useRef(new Animated.Value(0)).current; // Slide Y
+  const fadeAnim = useRef(new Animated.Value(1)).current; 
+  const scaleAnim = useRef(new Animated.Value(1)).current; 
+  const slideAnim = useRef(new Animated.Value(0)).current; 
 
   const [myLocation, setMyLocation] = useState({ latitude: 28.6139, longitude: 77.2090 });
   const [pickupLocation, setPickupLocation] = useState<any>(null);
@@ -38,7 +39,10 @@ export default function Home() {
   const [region, setRegion] = useState({ latitude: 28.6139, longitude: 77.2090, latitudeDelta: 0.05, longitudeDelta: 0.05 });
   
   const [rideDetails, setRideDetails] = useState<any>(null);
-  const [rideStatus, setRideStatus] = useState<'idle' | 'searching' | 'booked' | 'arrived' | 'completed'>('idle'); 
+  
+  // 2. UPDATED STATUS TYPE: Added 'rating'
+  const [rideStatus, setRideStatus] = useState<'idle' | 'searching' | 'booked' | 'arrived' | 'completed' | 'rating'>('idle'); 
+  
   const [assignedDriver, setAssignedDriver] = useState<any>(null);
   const [driverLocation, setDriverLocation] = useState<any>(null);
   const [vehicleIcon, setVehicleIcon] = useState(CAR_ICON);
@@ -47,32 +51,16 @@ export default function Home() {
 
   // --- TRIGGER "MORPH" ANIMATION ---
   useEffect(() => {
-    // 1. Reset values (Start slightly smaller, transparent, and lower)
     fadeAnim.setValue(0);
     scaleAnim.setValue(0.95);
     slideAnim.setValue(10);
 
-    // 2. Animate to Normal (1.0)
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 250,
-        easing: Easing.out(Easing.back(1.5)), // Small "bounce" effect
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      })
+      Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 250, easing: Easing.out(Easing.back(1.5)), useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true })
     ]).start();
-
-  }, [destination]); // Runs every time destination changes (Single <-> Double)
+  }, [destination]); 
 
   useEffect(() => {
     (async () => {
@@ -168,10 +156,18 @@ export default function Home() {
     }
   };
 
-  const cancelRide = () => {
+  // 3. CANCEL NOW TRIGGERS RATING INSTEAD OF RESET
+  const handleRideEnd = () => {
     if (rideStatus === 'completed') {
       saveRideToHistory();
+      setRideStatus('rating'); // <--- Go to Rating Screen
+    } else {
+      resetApp(); // If cancelling early, just reset
     }
+  };
+
+  // 4. FINAL RESET FUNCTION
+  const resetApp = () => {
     setRideStatus('idle');
     setAssignedDriver(null);
     setDestination(null);
@@ -239,31 +235,20 @@ export default function Home() {
         )}
       </MapView>
 
-      {/* --- HEADER LOGIC --- */}
+      {/* HEADER LOGIC */}
       {rideStatus === 'idle' && (
         <SafeAreaView style={styles.headerContainer} pointerEvents="box-none">
-          
-          {/* WRAPPER FOR ANIMATION */}
-          <Animated.View style={{ 
-            opacity: fadeAnim, 
-            transform: [
-              { scale: scaleAnim }, 
-              { translateY: slideAnim }
-            ] 
-          }}>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: scaleAnim }, { translateY: slideAnim }] }}>
             {!destination ? (
-              /* --- SINGLE SEARCH BAR --- */
               <View> 
                 <View style={styles.locationBadge}>
                   <View style={styles.greenDot} />
                   <Text style={styles.locationText} numberOfLines={1}>{pickupName}</Text>
                 </View>
-
                 <View style={styles.topRow}>
                   <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
                     <Ionicons name="menu" size={26} color="black" />
                   </TouchableOpacity>
-
                   <View style={styles.inputWrapper}>
                       <View style={styles.searchIcon}><Ionicons name="search" size={20} color="black" /></View>
                       <GooglePlacesAutocomplete
@@ -283,7 +268,6 @@ export default function Home() {
                       />
                   </View>
                 </View>
-
                 <View style={styles.shortcutContainer}>
                   <TouchableOpacity style={styles.shortcutBtn} onPress={() => handleShortcut(28.6139, 77.2090, "Home")}>
                     <View style={[styles.iconCircle, { backgroundColor: '#2196F3' }]}>
@@ -300,17 +284,13 @@ export default function Home() {
                 </View>
               </View>
             ) : (
-              /* --- MODERN ROUNDED DOUBLE INPUT --- */
               <View style={styles.modernInputContainer}>
                 <TouchableOpacity onPress={() => setDestination(null)} style={styles.backBtnAbsolute}>
                   <View style={styles.backBtnCircle}>
                     <Ionicons name="arrow-back" size={22} color="black" />
                   </View>
                 </TouchableOpacity>
-
                 <View style={styles.inputsColumn}>
-                  
-                  {/* FROM INPUT */}
                   <View style={styles.inputRow}>
                     <View style={styles.greenDot} />
                     <GooglePlacesAutocomplete
@@ -326,20 +306,12 @@ export default function Home() {
                                 setPickupLocation({ latitude: lat, longitude: lng });
                             }
                         }}
-                        styles={{
-                          container: { flex: 1 },
-                          textInput: { height: 45, color: 'black', fontSize: 16, backgroundColor: '#F3F4F6', borderRadius: 25, paddingLeft: 15 },
-                          listView: { zIndex: 9999 } 
-                        }}
+                        styles={{ container: { flex: 1 }, textInput: { height: 45, color: 'black', fontSize: 16, backgroundColor: '#F3F4F6', borderRadius: 25, paddingLeft: 15 }, listView: { zIndex: 9999 } }}
                       />
                   </View>
-
-                  {/* CONNECTOR LINE */}
                   <View style={styles.connectorContainer}>
                      <View style={styles.connectorLine} />
                   </View>
-
-                  {/* TO INPUT */}
                   <View style={styles.inputRow}>
                     <View style={styles.redSquare} />
                     <GooglePlacesAutocomplete
@@ -355,20 +327,17 @@ export default function Home() {
                                 setDestination({ latitude: lat, longitude: lng });
                             }
                         }}
-                        styles={{
-                          container: { flex: 1 },
-                          textInput: { height: 45, color: 'black', fontSize: 16, backgroundColor: '#F3F4F6', borderRadius: 25, paddingLeft: 15 }
-                        }}
+                        styles={{ container: { flex: 1 }, textInput: { height: 45, color: 'black', fontSize: 16, backgroundColor: '#F3F4F6', borderRadius: 25, paddingLeft: 15 } }}
                       />
                   </View>
                 </View>
               </View>
             )}
           </Animated.View>
-
         </SafeAreaView>
       )}
 
+      {/* BOTTOM SHEET */}
       <View style={styles.bottomSheet}>
         {rideStatus === 'searching' && (
           <View style={styles.loadingContainer}>
@@ -380,16 +349,30 @@ export default function Home() {
         )}
         
         {(rideStatus === 'booked' || rideStatus === 'arrived') && assignedDriver && (
-          <DriverModal driver={assignedDriver} onCancel={cancelRide} />
+          <DriverModal driver={assignedDriver} onCancel={resetApp} />
         )}
+        
         {rideStatus === 'idle' && rideDetails && (
           <RideOptions distance={rideDetails.distance} travelTime={rideDetails.duration} onBook={bookRide} />
         )}
         
+        {/* 5. PASS HANDLE RIDE END TO BILL */}
         {rideStatus === 'completed' && (
-          <BillModal price={tripCost} onClose={cancelRide} />
+          <BillModal price={tripCost} onClose={handleRideEnd} />
         )}
       </View>
+
+      {/* 6. RATING MODAL (SHOWN ON TOP OF EVERYTHING) */}
+      {rideStatus === 'rating' && assignedDriver && (
+        <RatingModal 
+          driverName={assignedDriver.name} 
+          onSubmit={() => {
+            Alert.alert("Rated!", "Thanks for your feedback.");
+            resetApp(); // Back to Start
+          }} 
+        />
+      )}
+
     </View>
   );
 }
@@ -403,35 +386,16 @@ const autoCompleteStyles = {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   map: { width: '100%', height: '100%' },
-  
   headerContainer: { position: 'absolute', top: 10, width: '100%', zIndex: 1, paddingHorizontal: 15 },
-  
-  // --- MODERN INPUT STYLES ---
-  modernInputContainer: {
-    backgroundColor: 'white', 
-    borderRadius: 25, 
-    paddingVertical: 20, 
-    paddingHorizontal: 15, 
-    marginHorizontal: 5, 
-    marginTop: 10,
-    
-    // Deep Soft Shadow
-    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10, 
-    flexDirection: 'row', alignItems: 'center'
-  },
-  
+  modernInputContainer: { backgroundColor: 'white', borderRadius: 25, paddingVertical: 20, paddingHorizontal: 15, marginHorizontal: 5, marginTop: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 10, flexDirection: 'row', alignItems: 'center' },
   backBtnAbsolute: { marginRight: 10 },
   backBtnCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
   inputsColumn: { flex: 1 },
-  
   inputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
   connectorContainer: { paddingLeft: 11, height: 15, justifyContent: 'center' },
   connectorLine: { width: 2, height: '100%', backgroundColor: '#E5E7EB', marginBottom: 5 },
-  
   greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2ecc71', marginRight: 12 },
   redSquare: { width: 8, height: 8, backgroundColor: '#e74c3c', marginRight: 12 },
-
-  // --- SINGLE SEARCH STYLES ---
   locationBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 25, alignSelf: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, maxWidth: '85%' },
   locationText: { fontWeight: '600', fontSize: 14, color: '#333' },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
@@ -442,7 +406,6 @@ const styles = StyleSheet.create({
   shortcutBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 25, marginRight: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 3 },
   iconCircle: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
   shortcutText: { fontWeight: 'bold', fontSize: 14, color: '#333' },
-  
   bottomSheet: { position: 'absolute', bottom: 0, width: '100%', zIndex: 3 },
   loadingContainer: { padding: 30, backgroundColor: 'white', alignItems: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20, shadowColor: "#000", elevation: 10 },
   loadingTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
