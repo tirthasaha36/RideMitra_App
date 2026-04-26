@@ -16,11 +16,9 @@ export default function RootLayout() {
     <Stack>
       {/* 1. Intro / Onboarding Screen */}
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      
-      {/* 2. Login Screen */}
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
+      <Stack.Screen name="signup" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
-      
-      {/* 3. Main Map Screen (Updated from 'tabs' to 'home') */}
       <Stack.Screen name="home" options={{ headerShown: false }} />
     </Stack>
   );

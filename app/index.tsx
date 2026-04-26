@@ -47,12 +47,12 @@ export default function Onboarding() {
     if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
-      router.replace('/login');
+      router.replace('/welcome');
     }
   };
 
   const handleSkip = () => {
-    router.replace('/login');
+    router.replace('/welcome');
   };
 
   return (
