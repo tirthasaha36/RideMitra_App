@@ -18,7 +18,7 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"
+        "googleMapsApiKey": ""
       }
     },
     
@@ -34,7 +34,7 @@
       "package": "com.tirtha.cabbooking",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"
+          "apiKey": ""
         }
       }
     },

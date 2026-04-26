@@ -15,7 +15,7 @@ import BillModal from '../components/BillModal';
 import Radar from '../components/Radar'; 
 import RatingModal from '../components/RatingModal'; // <--- 1. IMPORT RATING MODAL
 
-const GOOGLE_API_KEY = "AIzaSyCUP16Q90k7YigrYF-jgxLSUWGAVo9yjdo"; 
+const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY || ""; 
 
 const CAR_ICON = 'https://cdn-icons-png.flaticon.com/512/75/75780.png';
 const BIKE_ICON = 'https://cdn-icons-png.flaticon.com/512/171/171254.png';
