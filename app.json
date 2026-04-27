@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "cab-booking",
-    "slug": "cab-booking",
+    "name": "Ride Mitra",
+    "slug": "ride-mitra",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "cabbooking",
+    "icon": "./assets/images/mysplash.png",
+    "scheme": "ridemitra",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
 
     "splash": {
       "image": "./assets/images/mysplash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFC107"
+      "backgroundColor": "#ffffff"
     },
 
     "ios": {
@@ -24,7 +24,7 @@
     
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "foregroundImage": "./assets/images/mysplash.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -51,7 +51,7 @@
         {
           "image": "./assets/images/mysplash.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFC107",
+          "backgroundColor": "#ffffff",
           "imageWidth": 200
         }
       ]
