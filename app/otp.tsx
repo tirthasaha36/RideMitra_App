@@ -9,11 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function OTPVerification() {
   const router = useRouter();
+  const { type } = useLocalSearchParams();
   const [otp, setOtp] = useState(['', '', '', '', '']);
   const inputs = useRef<Array<TextInput | null>>([]);
 
@@ -53,7 +54,9 @@ export default function OTPVerification() {
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>Phone verification</Text>
+            <Text style={styles.title}>
+              {type === 'email' ? 'Email verification' : 'Phone verification'}
+            </Text>
             <Text style={styles.subtitle}>Enter your OTP code</Text>
           </View>
 
