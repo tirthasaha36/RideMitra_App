@@ -112,7 +112,7 @@ export default function SignUp() {
               {/* Sign Up Button */}
               <TouchableOpacity
                 style={styles.signUpButton}
-                onPress={() => router.push('/home')}
+                onPress={() => router.push('/otp')}
               >
                 <Text style={styles.signUpButtonText}>Sign Up</Text>
               </TouchableOpacity>
