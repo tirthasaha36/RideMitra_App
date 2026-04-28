@@ -18,6 +18,8 @@ import { Image } from 'expo-image';
 
 export default function SignUp() {
   const router = useRouter();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [gender, setGender] = useState('');
   const [isGenderModalVisible, setIsGenderModalVisible] = useState(false);
@@ -37,15 +39,17 @@ export default function SignUp() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            <Text style={styles.title}>Sign up</Text>
+            <Text style={styles.title}>Complete Profile</Text>
 
             <View style={styles.form}>
               {/* Name Input */}
               <View style={styles.inputWrapper}>
                 <TextInput
-                  placeholder="Name"
+                  placeholder="Full Name"
                   placeholderTextColor="#C7C7CD"
                   style={styles.input}
+                  value={name}
+                  onChangeText={setName}
                 />
               </View>
 
@@ -57,17 +61,8 @@ export default function SignUp() {
                   style={styles.input}
                   keyboardType="email-address"
                   autoCapitalize="none"
-                />
-              </View>
-
-              {/* Phone Input */}
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  placeholder="Phone number"
-                  placeholderTextColor="#C7C7CD"
-                  style={styles.input}
-                  keyboardType="phone-pad"
-                  maxLength={10}
+                  value={email}
+                  onChangeText={setEmail}
                 />
               </View>
 
@@ -92,7 +87,7 @@ export default function SignUp() {
                   {agreed && <Ionicons name="checkmark" size={14} color="#fff" />}
                 </TouchableOpacity>
                 <Text style={styles.termsText}>
-                  By signing up, you agree to the{' '}
+                  By proceeding, you agree to the{' '}
                   <Text
                     style={styles.linkText}
                     onPress={() => console.log('Navigate to Terms of service')}
@@ -109,49 +104,13 @@ export default function SignUp() {
                 </Text>
               </View>
 
-              {/* Sign Up Button */}
+              {/* Finish Button */}
               <TouchableOpacity
-                style={styles.signUpButton}
-                onPress={() => router.push('/otp')}
+                style={styles.finishButton}
+                onPress={() => router.replace('/home')}
               >
-                <Text style={styles.signUpButtonText}>Sign Up</Text>
+                <Text style={styles.finishButtonText}>Finish</Text>
               </TouchableOpacity>
-
-              {/* Or Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              {/* Social Login */}
-              <View style={styles.socialContainer}>
-                <TouchableOpacity style={styles.socialButton}>
-                  <Image
-                    source="https://img.icons8.com/color/48/000000/google-logo.png"
-                    style={styles.socialIcon}
-                    contentFit="contain"
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialButton}>
-                  <Image
-                    source="https://img.icons8.com/color/48/000000/facebook-new.png"
-                    style={styles.socialIcon}
-                    contentFit="contain"
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialButton}>
-                  <FontAwesome name="apple" size={28} color="#000" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Footer */}
-              <View style={styles.footer}>
-                <Text style={styles.footerText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.replace('/login')}>
-                  <Text style={styles.footerLink}>Sign in</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </ScrollView>
@@ -269,7 +228,7 @@ const styles = StyleSheet.create({
     color: '#F1B31C',
     fontWeight: '600',
   },
-  signUpButton: {
+  finishButton: {
     backgroundColor: '#F1B31C',
     height: 56,
     borderRadius: 12,
@@ -282,57 +241,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  signUpButtonText: {
+  finishButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#999',
-    fontSize: 14,
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-    marginBottom: 32,
-  },
-  socialButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  socialIcon: {
-    width: 28,
-    height: 28,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 15,
-    color: '#666',
-  },
-  footerLink: {
-    fontSize: 15,
-    color: '#F1B31C',
     fontWeight: '700',
   },
   modalOverlay: {

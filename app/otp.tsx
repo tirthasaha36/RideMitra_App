@@ -54,10 +54,8 @@ export default function OTPVerification() {
       >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>
-              {type === 'email' ? 'Email verification' : 'Phone verification'}
-            </Text>
-            <Text style={styles.subtitle}>Enter your OTP code</Text>
+            <Text style={styles.title}>Phone Verification</Text>
+            <Text style={styles.subtitle}>Enter the code sent to your number</Text>
           </View>
 
           <View style={styles.otpContainer}>
@@ -92,7 +90,7 @@ export default function OTPVerification() {
 
           <TouchableOpacity
             style={styles.verifyButton}
-            onPress={() => router.push('/home')}
+            onPress={() => router.push('/signup')}
           >
             <Text style={styles.verifyButtonText}>Verify</Text>
           </TouchableOpacity>

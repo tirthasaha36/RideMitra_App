@@ -27,17 +27,10 @@ export default function Welcome() {
       {/* Buttons */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity 
-          style={styles.createButton} 
-          onPress={() => router.push('/signup')}
-        >
-          <Text style={styles.createButtonText}>Create an account</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.loginButton} 
+          style={styles.getStartedButton} 
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.loginButtonText}>Log In</Text>
+          <Text style={styles.getStartedButtonText}>Get Started</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -83,8 +76,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     gap: 15,
   },
-  createButton: {
-    backgroundColor: '#F1B31C', // Match the yellow/gold from the image
+  getStartedButton: {
+    backgroundColor: '#F1B31C',
     height: 55,
     borderRadius: 8,
     justifyContent: 'center',
@@ -96,23 +89,8 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
-  createButtonText: {
+  getStartedButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loginButton: {
-    backgroundColor: '#FFFFFF',
-    height: 55,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#F1B31C',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  loginButtonText: {
-    color: '#F1B31C',
     fontSize: 16,
     fontWeight: '600',
   },
